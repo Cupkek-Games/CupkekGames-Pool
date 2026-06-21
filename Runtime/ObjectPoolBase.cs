@@ -17,7 +17,44 @@ namespace CupkekGames.Pool
     public event Action<T> OnReturnToPoolEvent;
     public event Action<T> OnDestroyObjectEvent;
 
+    /// <summary>
+    /// Raw Unity pool. Prefer <see cref="Get"/> / <see cref="Release"/> —
+    /// they skip destroyed instances, which the raw pool can hand out
+    /// (a pooled object destroyed externally stays in the internal list;
+    /// <see cref="ObjectPool{T}"/> has no removal API).
+    /// </summary>
     public ObjectPool<T> Pool => pool;
+
+    /// <summary>
+    /// Take an instance, skipping destroyed ones. A pooled UnityEngine.Object
+    /// can die while inactive in the pool (scene unload, direct Destroy) —
+    /// popped corpses are dropped and the next instance is taken instead;
+    /// the pool creates a fresh one when it runs dry, so this always
+    /// returns a live instance.
+    /// </summary>
+    public T Get()
+    {
+      while (true)
+      {
+        T instance = pool.Get();
+        if (instance is UnityEngine.Object obj && obj == null)
+        {
+          continue;
+        }
+        return instance;
+      }
+    }
+
+    /// <summary>
+    /// Return an instance to the pool. A destroyed instance is ignored —
+    /// a corpse must never re-enter the pool.
+    /// </summary>
+    public void Release(T instance)
+    {
+      if (instance == null) return;
+      if (instance is UnityEngine.Object obj && obj == null) return;
+      pool.Release(instance);
+    }
 
     public ObjectPoolBase(int defaultCapacity, int maxSize, bool collectionCheck = true)
     {
@@ -33,11 +70,11 @@ namespace CupkekGames.Pool
       T[] instances = new T[_defaultCapacity];
       for (int i = 0; i < _defaultCapacity; i++)
       {
-        instances[i] = Pool.Get();
+        instances[i] = Get();
       }
       for (int i = 0; i < _defaultCapacity; i++)
       {
-        Pool.Release(instances[i]);
+        Release(instances[i]);
       }
     }
 

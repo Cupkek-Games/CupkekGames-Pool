@@ -10,14 +10,24 @@ namespace CupkekGames.Pool
 
     private void OnDisable()
     {
-      // Debug.Log($"[GameObjectPoolPooled] OnDisable for {gameObject.name}");
+      // Scene unload: OnDisable fires while the object is being torn
+      // down — releasing here would push a destroyed instance into the
+      // pool, and a later Get() would hand out the corpse.
+      if (!gameObject.scene.isLoaded)
+      {
+        return;
+      }
+
       ReleaseToPool();
     }
 
     private void OnDestroy()
     {
-      // Debug.Log($"[GameObjectPoolPooled] OnDestroy for {gameObject.name}");
-      ReleaseToPool();
+      // An object being destroyed must never re-enter the pool (the pool
+      // would hold a fake-null reference). Plain deactivation is handled
+      // by OnDisable; here just mark the slot dead.
+      _isReleased = true;
+      _gameObjectPool = null;
     }
 
     private void ReleaseToPool()
@@ -37,7 +47,7 @@ namespace CupkekGames.Pool
         // Debug.Log($"[GameObjectPoolPooled] Releasing {gameObject.name} to pool");
         try
         {
-          _gameObjectPool.Pool.Release(gameObject);
+          _gameObjectPool.Release(gameObject);
           _gameObjectPool = null;
         }
         catch (System.InvalidOperationException e)

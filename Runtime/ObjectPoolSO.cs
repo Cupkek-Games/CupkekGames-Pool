@@ -17,7 +17,36 @@ namespace CupkekGames.Pool
     public event Action<T> OnReturnToPoolEvent;
     public event Action<T> OnDestroyObjectEvent;
 
+    /// <summary>
+    /// Raw Unity pool. Prefer <see cref="Get"/> / <see cref="Release"/> —
+    /// they skip destroyed instances, which the raw pool can hand out.
+    /// </summary>
     public UnityEngine.Pool.ObjectPool<T> Pool => pool;
+
+    /// <summary>
+    /// Take an instance, skipping destroyed ones (see
+    /// <see cref="ObjectPoolBase{T}.Get"/> for the rationale).
+    /// </summary>
+    public T Get()
+    {
+      while (true)
+      {
+        T instance = pool.Get();
+        if (instance is UnityEngine.Object obj && obj == null)
+        {
+          continue;
+        }
+        return instance;
+      }
+    }
+
+    /// <summary>Return an instance; destroyed instances are ignored.</summary>
+    public void Release(T instance)
+    {
+      if (instance == null) return;
+      if (instance is UnityEngine.Object obj && obj == null) return;
+      pool.Release(instance);
+    }
 
     public void Init()
     {
@@ -36,11 +65,11 @@ namespace CupkekGames.Pool
       T[] instances = new T[defaultCapacity];
       for (int i = 0; i < defaultCapacity; i++)
       {
-        instances[i] = Pool.Get();
+        instances[i] = Get();
       }
       for (int i = 0; i < defaultCapacity; i++)
       {
-        Pool.Release(instances[i]);
+        Release(instances[i]);
       }
     }
 
